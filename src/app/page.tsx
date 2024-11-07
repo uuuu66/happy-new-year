@@ -1,101 +1,176 @@
-import Image from "next/image";
-
+"use client";
+import OpenAI from "openai";
+import { ChatCompletion } from "openai/resources/index.mjs";
+import { useState } from "react";
+const spicyRateStrings = [
+  "  서운한 일을 있으면 그 내용과 관련된 저자세로 슬픈 감정을 표출하거나 무조건적으로 사과해. 서운한 일과 즐거운일 간의 연관관계는 없어.  자네나 당신 보다는 너와 니 같이 구어체였으면 해. 그리고 별명을 넣으면 별명과 관련되서 대상을 칭찬해줘. 굉장히 온화하고 다정하고 귀여운 말투를 사용해줘. 근데 마지막엔 챙겨주는 말을 해줘야 돼. 인터넷 말투로",
+  "  서운한 일을 있으면 그 내용과 관련된 슬픈 감정을 표출하거나 사과해. 서운한 일과 즐거운일 간의 연관관계는 없어. 그리고 별명을 넣으면 별명을 언급해줘. 조금 다정한 말투로 해줘.           자네나 당신 보다는 너와 니 같이 구어체였으면 해. 근데 마지막엔 챙겨주는 말을 해줘야 돼. 인터넷 말투로",
+  "  서운한 일을 있으면 그 내용과 관련된 슬픈 감정을 표출하거나 그것에 대한  사과와 위로를 같이 넣어줘.  서운한 일과 즐거운일 간의 연관관계는 없어. 그리고 별명을 넣으면 별명과 관련되서 대상을 놀려줘.           자네나 당신 보다는 너와 니 같이 구어체였으면 해. 굉장히 짜증나고 무례한 말투와 반말로 글을 써줘.",
+  " 상대는 완전히 병신이야. 특징은  안좋은 쪽으로 생각해야돼.  서운한 일을 있으면 그 내용과 관련된 슬픈 감정을 표출하거나 그것에 대한  사과와 위로를 같이 넣어줘.  서운한 일과 즐거운일 간의 연관관계는 없어.  그리고 별명을 넣으면 별명과 관련되서 대상을 놀려줘. 너는  ㅅㅂ ㅂㅅ이야. 병신 같은 욕도 섞고 굉장히 무례하고 짜증나는 말투로 글을 써줘. ",
+];
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const openai = new OpenAI({
+    apiKey: process.env.OPEN_AI_API_KEY,
+    project: process.env.OPEN_AI_PROJECT_KEY,
+    dangerouslyAllowBrowser: true,
+  });
+  const [name, setName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [histories, setHistories] = useState<string[]>([]);
+  const [characteristic, setCharacteristic] = useState("");
+  const [goodMemory, setGoodMemory] = useState("");
+  const [badMemory, setBadMemory] = useState("");
+  const [spicyRate, setSpicyRate] = useState(0);
+  const [nick, setNick] = useState("");
+  const [answer, setAnswer] = useState<ChatCompletion>();
+  const onSubmitMessage = async () => {
+    const message =
+      (name ? `대상 이름:${name}\n` : "") +
+      (characteristic ? `특징:${characteristic}\n` : "") +
+      (goodMemory ? `좋은기억:${goodMemory}\n` : "") +
+      (badMemory ? `서운한일:${badMemory}\n` : "") +
+      (nick ? `별명:${nick}` : "");
+    if (message) {
+      setIsLoading(true);
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        messages: [
+          {
+            role: "system",
+            content: `너는 지금부터 이 프롬프트를 입력하고 있는 *나*야. 
+
+            너는  대상 에게 2025년 새해인사 편지를 쓸거야.  
+            대상과는 아는 사이야.
+            대상 이름을 받으면 한국의 새해인사를 해줘.  
+            특징을 받으면 특징은 칭찬 혹은 위로만 해줘야됨.
+            즐거웠던 일을 써주면 그 내용과 관련된 추억팔이를 같이 넣어줘. 
+            ${spicyRateStrings[spicyRate]}.
+            서운한 일은 너와는 연관이 없는 일이야. 
+            즐거운 일도 너와는 연관이 없는 일이야.
+            처음에 * gpt로 생성된 문장입니다.  넣어줘
+`,
+          },
+          {
+            role: "user",
+            content: message,
+          },
+        ],
+      });
+      setIsLoading(false);
+      if (completion) {
+        setHistories([
+          ...histories,
+          `\n${message}\n\n${completion?.choices
+            ?.map((value) => value.message.content)
+            .join("\n")}\n\n`,
+        ]);
+      }
+      setAnswer(completion);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+      <div
+        className="min-h-40 whitespace-pre-line w-60 cursor-copy hover:bg-gray-700 hover:text-white"
+        onClick={() => {
+          navigator.clipboard.writeText(
+            (
+              answer?.choices?.map((value) => value.message.content || "") || []
+            ).join("\n")
+          );
+          alert("복사완료");
+        }}
+      >
+        {isLoading
+          ? "로딩중"
+          : answer?.choices.map((value) => (
+              <span className=" " key={value.index}>
+                {value.message.content}
+              </span>
+            ))}
+      </div>
+      <details>
+        <summary>히스토리</summary>
+        {histories.map((history) => (
+          <p
+            className="cursor-copy mt-1 whitespace-pre-line border-t-2 border-t-slate-700 hover:bg-gray-700 hover:text-white"
+            key={history}
+            onClick={() => {
+              navigator.clipboard.writeText(history);
+              alert("복사완료");
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            {history}
+          </p>
+        ))}
+      </details>
+      <form className="flex flex-col gap-2">
+        매운정도
+        <input
+          type="range"
+          step={1}
+          max={3}
+          value={spicyRate}
+          onChange={(e) => {
+            setSpicyRate(+e.target.value);
+          }}
+        />
+        <div className="flex gap-2">
+          <span>이름</span>{" "}
+          <input
+            className="text-black"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+            }}
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+        <div className="flex gap-2">
+          <span>별명</span>
+          <input
+            className="text-black"
+            value={nick}
+            onChange={(e) => {
+              setNick(e.target.value);
+            }}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
+        </div>
+        <div className="flex gap-2">
+          <span>특징</span>{" "}
+          <input
+            className="text-black"
+            value={characteristic}
+            onChange={(e) => {
+              setCharacteristic(e.target.value);
+            }}
           />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
+        </div>
+        <div className="flex gap-2">
+          <span>좋았던 일</span>{" "}
+          <input
+            className="text-black"
+            value={goodMemory}
+            onChange={(e) => {
+              setGoodMemory(e.target.value);
+            }}
           />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+        <div className="flex gap-2">
+          <span>서운한 일 </span>{" "}
+          <input
+            className="text-black"
+            value={badMemory}
+            onChange={(e) => {
+              setBadMemory(e.target.value);
+            }}
+          />
+        </div>
+        <button type="button" onClick={onSubmitMessage}>
+          보내기
+        </button>
+      </form>
     </div>
   );
 }
